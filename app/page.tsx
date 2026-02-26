@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { callAIAgent, type AIAgentResponse } from '@/lib/aiAgent'
 import parseLLMJson from '@/lib/jsonParser'
-import { HiHashtag, HiLockClosed, HiSearch, HiChevronDown, HiChevronUp, HiReply, HiClock, HiUserGroup, HiChat, HiExclamation, HiQuestionMarkCircle, HiFire, HiCheckCircle, HiX, HiRefresh, HiArrowLeft, HiFilter, HiMenuAlt2 } from 'react-icons/hi'
+import { HiHashtag, HiLockClosed, HiSearch, HiChevronDown, HiChevronUp, HiReply, HiClock, HiUserGroup, HiChat, HiExclamation, HiQuestionMarkCircle, HiFire, HiCheckCircle, HiX, HiRefresh, HiArrowLeft, HiFilter, HiMenuAlt2, HiDownload, HiGlobe } from 'react-icons/hi'
 
 // ── Agent IDs ──
 const MANAGER_AGENT_ID = '69a01a8ca2c9d4f61dfad00d'
 const REPLY_AGENT_ID = '69a01a9c0312792fe8a4e5fd'
+const SUMMARIZER_AGENT_ID = '69a01a648b888baee3576ce0' // Has SLACK_LIST_ALL_CHANNELS tool
 
 // ── Sample Channels ──
 const SAMPLE_CHANNELS = [
@@ -475,6 +476,11 @@ function ActionItemCard({
 function AgentStatusBar({ activeAgentId }: { activeAgentId: string | null }) {
   const agents = [
     {
+      id: SUMMARIZER_AGENT_ID,
+      name: 'Conversation Summarizer',
+      purpose: 'Fetches channels & conversation history',
+    },
+    {
       id: MANAGER_AGENT_ID,
       name: 'Channel Insights Coordinator',
       purpose: 'Summarizes channels & identifies action items',
@@ -568,6 +574,12 @@ export default function Page() {
   const [sendingReply, setSendingReply] = useState<string | null>(null)
   const [expandedTopics, setExpandedTopics] = useState<Set<number>>(new Set())
 
+  // Live channels state
+  const [liveChannels, setLiveChannels] = useState<Channel[]>([])
+  const [fetchingChannels, setFetchingChannels] = useState(false)
+  const [channelsFetched, setChannelsFetched] = useState(false)
+  const [channelFetchError, setChannelFetchError] = useState<string | null>(null)
+
   // UI state
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSampleData, setShowSampleData] = useState(false)
@@ -576,6 +588,76 @@ export default function Page() {
 
   const timeRangeRef = useRef<HTMLDivElement>(null)
   const TIME_OPTIONS = ['Last 24 hours', 'Last 7 days', 'Last 30 days']
+
+  // Fetch live Slack channels via Conversation Summarizer Agent
+  const handleFetchChannels = useCallback(async () => {
+    setFetchingChannels(true)
+    setChannelFetchError(null)
+    setActiveAgentId(SUMMARIZER_AGENT_ID)
+
+    const message = `List all Slack channels in the workspace using the SLACK_LIST_ALL_CHANNELS tool. Return the complete list of channels with their names, IDs, whether they are private or public, member count, and any other available metadata. Return EVERY channel available.`
+
+    try {
+      const result = await callAIAgent(message, SUMMARIZER_AGENT_ID)
+      if (result.success) {
+        let parsed = result?.response?.result
+        if (typeof parsed === 'string') {
+          parsed = parseLLMJson(parsed)
+        }
+
+        // The agent may return channels in various formats. Handle flexibly.
+        let channelList: any[] = []
+
+        if (Array.isArray(parsed)) {
+          channelList = parsed
+        } else if (parsed?.channels && Array.isArray(parsed.channels)) {
+          channelList = parsed.channels
+        } else if (parsed?.data && Array.isArray(parsed.data)) {
+          channelList = parsed.data
+        } else if (parsed?.summary?.channels && Array.isArray(parsed.summary.channels)) {
+          channelList = parsed.summary.channels
+        } else if (parsed?.topics && Array.isArray(parsed.topics)) {
+          // Sometimes the response schema wraps it in topics
+          channelList = parsed.topics
+        } else {
+          // Try to find any array in the top-level keys
+          const keys = parsed ? Object.keys(parsed) : []
+          for (const key of keys) {
+            if (Array.isArray(parsed[key]) && parsed[key].length > 0) {
+              const first = parsed[key][0]
+              if (first && (first.name || first.channel_name || first.id)) {
+                channelList = parsed[key]
+                break
+              }
+            }
+          }
+        }
+
+        if (channelList.length > 0) {
+          const mapped: Channel[] = channelList.map((ch: any, idx: number) => ({
+            id: ch?.id || ch?.channel_id || `ch-${idx}`,
+            name: ch?.name || ch?.channel_name || ch?.title || `channel-${idx}`,
+            is_private: ch?.is_private ?? ch?.isPrivate ?? ch?.private ?? false,
+            member_count: ch?.member_count ?? ch?.num_members ?? ch?.members ?? 0,
+            last_activity: ch?.last_activity ?? ch?.updated ?? ch?.purpose?.last_set ?? 'N/A',
+          }))
+          setLiveChannels(mapped)
+          setChannelsFetched(true)
+          setSuccessMessage(`Fetched ${mapped.length} channels from Slack`)
+          setTimeout(() => setSuccessMessage(null), 4000)
+        } else {
+          setChannelFetchError('No channels found in the response. The agent may need Slack authentication configured.')
+        }
+      } else {
+        setChannelFetchError(result?.error ?? 'Failed to fetch channels from Slack')
+      }
+    } catch (err) {
+      setChannelFetchError('An error occurred while fetching Slack channels')
+    } finally {
+      setFetchingChannels(false)
+      setActiveAgentId(null)
+    }
+  }, [])
 
   // Close time dropdown on outside click
   useEffect(() => {
@@ -607,9 +689,16 @@ export default function Page() {
     }
   }, [showSampleData])
 
+  // Determine which channel source to use
+  const channelSource = useMemo(() => {
+    if (showSampleData) return SAMPLE_CHANNELS
+    if (channelsFetched && liveChannels.length > 0) return liveChannels
+    return SAMPLE_CHANNELS
+  }, [showSampleData, channelsFetched, liveChannels])
+
   // Filter channels
   const filteredChannels = useMemo(() => {
-    return SAMPLE_CHANNELS.filter((ch) => {
+    return channelSource.filter((ch) => {
       const matchesSearch = ch.name
         .toLowerCase()
         .includes(searchQuery.toLowerCase())
@@ -619,7 +708,7 @@ export default function Page() {
         (channelFilter === 'private' && ch.is_private)
       return matchesSearch && matchesFilter
     })
-  }, [searchQuery, channelFilter])
+  }, [searchQuery, channelFilter, channelSource])
 
   // Summarize channel
   const handleSummarize = useCallback(async () => {
@@ -858,11 +947,56 @@ export default function Page() {
                     </button>
                   ))}
                 </div>
+
+                {/* Fetch Channels Button */}
+                <button
+                  onClick={handleFetchChannels}
+                  disabled={fetchingChannels}
+                  className="w-full inline-flex items-center justify-center gap-2 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 px-3 py-2 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {fetchingChannels ? (
+                    <>
+                      <HiRefresh className="w-3.5 h-3.5 animate-spin" />
+                      Fetching Channels...
+                    </>
+                  ) : (
+                    <>
+                      <HiDownload className="w-3.5 h-3.5" />
+                      {channelsFetched ? 'Refresh Slack Channels' : 'Fetch Slack Channels'}
+                    </>
+                  )}
+                </button>
+
+                {/* Channel Fetch Status */}
+                {channelsFetched && liveChannels.length > 0 && !showSampleData && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-green-600 bg-green-50 border border-green-200 px-2.5 py-1.5 rounded-lg">
+                    <HiGlobe className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>{liveChannels.length} live channels loaded</span>
+                  </div>
+                )}
+                {channelFetchError && (
+                  <div className="flex items-start gap-1.5 text-[11px] text-red-600 bg-red-50 border border-red-200 px-2.5 py-1.5 rounded-lg">
+                    <HiExclamation className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                    <span>{channelFetchError}</span>
+                  </div>
+                )}
               </div>
 
               {/* Channel List */}
               <div className="flex-1 overflow-y-auto px-2 pb-4">
-                {filteredChannels.length === 0 ? (
+                {fetchingChannels ? (
+                  <div className="space-y-1 px-1">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 animate-pulse">
+                        <div className="w-4 h-4 bg-muted rounded flex-shrink-0" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="h-3.5 bg-muted rounded w-3/4" />
+                          <div className="h-2.5 bg-muted rounded w-1/2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredChannels.length === 0 ? (
                   <div className="text-center py-8 text-sm text-muted-foreground">
                     No channels found
                   </div>
