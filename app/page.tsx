@@ -649,7 +649,13 @@ export default function Page() {
           setChannelFetchError('No channels found in the response. The agent may need Slack authentication configured.')
         }
       } else {
-        setChannelFetchError(result?.error ?? 'Failed to fetch channels from Slack')
+        const errMsg = result?.error ?? 'Failed to fetch channels from Slack'
+        const isAuthError = errMsg.toLowerCase().includes('tool_auth') || errMsg.toLowerCase().includes('auth') || errMsg.toLowerCase().includes('token')
+        setChannelFetchError(
+          isAuthError
+            ? 'Slack authentication required. Please connect your Slack workspace via Lyzr Studio to enable channel fetching.'
+            : errMsg
+        )
       }
     } catch (err) {
       setChannelFetchError('An error occurred while fetching Slack channels')

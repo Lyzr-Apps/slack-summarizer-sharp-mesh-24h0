@@ -263,17 +263,14 @@ async function pollTask(task_id: string) {
     return NextResponse.json({ status: 'processing' })
   }
 
-  // Task failed
+  // Task failed — return 200 with success:false so fetchWrapper doesn't trigger iframe error
   if (task.status === 'failed') {
-    return NextResponse.json(
-      {
-        success: false,
-        status: 'failed',
-        response: { status: 'error', result: {}, message: task.error || 'Agent task failed' },
-        error: task.error || 'Agent task failed',
-      },
-      { status: 500 }
-    )
+    return NextResponse.json({
+      success: false,
+      status: 'failed',
+      response: { status: 'error', result: {}, message: task.error || 'Agent task failed' },
+      error: task.error || 'Agent task failed',
+    })
   }
 
   // Task completed — envelope extraction + parseLLMJson + normalizeResponse
