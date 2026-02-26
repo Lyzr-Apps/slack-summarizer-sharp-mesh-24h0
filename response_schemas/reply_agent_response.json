@@ -1,0 +1,24 @@
+{
+  "agent_name": "Reply Agent",
+  "agent_id": "69a01a9c0312792fe8a4e5fd",
+  "description": "Sends user-approved reply messages back to the appropriate Slack channel and thread. Handles message formatting and thread targeting.",
+  "agent_type": "json",
+  "accessor": "result",
+  "auto_generated": true,
+  "response_schema": {
+    "success": "boolean",
+    "channel_id": "string",
+    "thread_id": "string",
+    "message_timestamp": "string",
+    "message_sent": "string",
+    "error": "string"
+  },
+  "example_response": {
+    "success": false,
+    "channel_id": "sample string",
+    "thread_id": "sample string",
+    "message_timestamp": "sample string",
+    "message_sent": "sample string",
+    "error": "sample string"
+  }
+}

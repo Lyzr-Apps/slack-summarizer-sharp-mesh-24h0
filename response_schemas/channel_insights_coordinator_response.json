@@ -1,0 +1,84 @@
+{
+  "agent_name": "Channel Insights Coordinator",
+  "agent_id": "69a01a8ca2c9d4f61dfad00d",
+  "description": "Coordinates sub-agents to fetch channel history, generate conversation summaries, and identify action items requiring user replies. Aggregates results into a unified summary with flagged items.",
+  "agent_type": "json",
+  "accessor": "result",
+  "auto_generated": true,
+  "response_schema": {
+    "channel_name": "string",
+    "time_range": "string",
+    "summary": {
+      "total_messages": "number",
+      "most_active_participants": [
+        "string"
+      ],
+      "topics": [
+        {
+          "title": "string",
+          "summary": "string",
+          "key_takeaways": [
+            "string"
+          ],
+          "participants": [
+            "string"
+          ],
+          "message_count": "number"
+        }
+      ],
+      "overall_summary": "string"
+    },
+    "action_items": [
+      {
+        "id": "string",
+        "category": "string",
+        "priority": "string",
+        "original_message": "string",
+        "sender_name": "string",
+        "timestamp": "string",
+        "thread_id": "string",
+        "context": "string",
+        "suggested_reply": "string"
+      }
+    ],
+    "total_flagged_items": "number"
+  },
+  "example_response": {
+    "channel_name": "sample string",
+    "time_range": "sample string",
+    "summary": {
+      "total_messages": 0,
+      "most_active_participants": [
+        "sample string"
+      ],
+      "topics": [
+        {
+          "title": "sample string",
+          "summary": "sample string",
+          "key_takeaways": [
+            "sample string"
+          ],
+          "participants": [
+            "sample string"
+          ],
+          "message_count": 0
+        }
+      ],
+      "overall_summary": "sample string"
+    },
+    "action_items": [
+      {
+        "id": "sample string",
+        "category": "sample string",
+        "priority": "sample string",
+        "original_message": "sample string",
+        "sender_name": "sample string",
+        "timestamp": "sample string",
+        "thread_id": "sample string",
+        "context": "sample string",
+        "suggested_reply": "sample string"
+      }
+    ],
+    "total_flagged_items": 0
+  }
+}

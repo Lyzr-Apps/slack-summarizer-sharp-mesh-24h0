@@ -1,0 +1,39 @@
+{
+  "agents": {
+    "channel_insights_coordinator": {
+      "agent_id": "69a01a8ca2c9d4f61dfad00d",
+      "type": "manager",
+      "name": "Channel Insights Coordinator",
+      "model": "gpt-4.1",
+      "provider": "openai",
+      "managed_agents": [
+        "69a01a648b888baee3576ce0",
+        "69a01a760312792fe8a4e5fb"
+      ]
+    },
+    "conversation_summarizer": {
+      "agent_id": "69a01a648b888baee3576ce0",
+      "type": "sub_agent",
+      "name": "Conversation Summarizer Agent",
+      "model": "gpt-4.1",
+      "provider": "openai",
+      "tools": ["SLACK_LIST_ALL_CHANNELS", "SLACK_FETCH_CONVERSATION_HISTORY"]
+    },
+    "action_item_detector": {
+      "agent_id": "69a01a760312792fe8a4e5fb",
+      "type": "sub_agent",
+      "name": "Action Item Detector Agent",
+      "model": "gpt-4.1",
+      "provider": "openai",
+      "tools": ["SLACK_FETCH_CONVERSATION_HISTORY"]
+    },
+    "reply_agent": {
+      "agent_id": "69a01a9c0312792fe8a4e5fd",
+      "type": "independent",
+      "name": "Reply Agent",
+      "model": "gpt-4.1",
+      "provider": "openai",
+      "tools": ["SLACK_CHAT_POST_MESSAGE"]
+    }
+  }
+}
